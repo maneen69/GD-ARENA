@@ -315,11 +315,14 @@ export default function Home({ liveEnabled }: { liveEnabled: boolean }) {
                   method: "POST",
                   headers: { "content-type": "application/json" },
                   body,
-                  signal: AbortSignal.timeout(9000),
+                  signal: AbortSignal.timeout(20000),
                 });
                 if (response.ok) break;
+                if (attempt === 0 && [502, 503].includes(response.status))
+                  continue;
+                throw Error("AI service unavailable");
               } catch {
-                if (attempt === 1) throw Error("AI request failed");
+                throw Error("AI request failed");
               }
             }
             if (!response?.ok) throw Error("AI service unavailable");

@@ -93,7 +93,7 @@ export async function POST(req: Request) {
             },
           ],
         }),
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(18000),
       });
     if (!response.ok)
       return NextResponse.json(
