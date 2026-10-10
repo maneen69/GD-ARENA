@@ -149,6 +149,7 @@ export default function Home({ liveEnabled }: { liveEnabled: boolean }) {
     [listening, L] = useState(false),
     [muted, M] = useState(false),
     [speaking, Sp] = useState(""),
+    [aiThinking, Think] = useState(false),
     [notice, N] = useState(""),
     [history, H] = useState<Saved[]>([]),
     [filter, F] = useState("All speakers"),
@@ -182,7 +183,7 @@ export default function Home({ liveEnabled }: { liveEnabled: boolean }) {
     timer = useRef<ReturnType<typeof setInterval> | null>(null),
     next = useRef<ReturnType<typeof setTimeout> | null>(null),
     recognition = useRef<SpeechRec | null>(null),
-    lastAi = useRef(0);
+    aiBusy = useRef(false);
   useEffect(
     () => () => {
       if (next.current) clearTimeout(next.current);
@@ -264,105 +265,108 @@ export default function Home({ liveEnabled }: { liveEnabled: boolean }) {
     };
   }, [screen, phase, P, add, say]);
   function schedule(isDemo = demo) {
+    if (aiBusy.current) return;
     if (next.current) clearTimeout(next.current);
     if (
       ["PAUSED", "COMPLETED", "PROCESSING_RESULTS"].includes(phaseRef.current)
     )
       return;
+    aiBusy.current = true;
+    Think(true);
     next.current = setTimeout(
       async () => {
-        if (Date.now() - lastAi.current < cfg.patience * 1000) {
-          schedule(isDemo);
-          return;
-        }
-        const roster = panel.slice(0, cfg.count);
-        const fallback = buildMockTurn({
-          topic: cfg.topic,
-          transcript: turnsRef.current.map((turn) => ({
-            speaker: turn.speaker,
-            text: turn.text,
-          })),
-          participants: roster.map((person) => ({
-            name: person.name,
-            personality: person.kind,
-          })),
-        });
-        let p =
-          roster.find((person) => person.name === fallback.speaker) ||
-          roster[0];
-        let text = fallback.text;
-        if (!isDemo) {
-          try {
-            const body = JSON.stringify({
-              topic: cfg.topic,
-              transcript: turnsRef.current
-                .slice(-12)
-                .map((t) => ({ speaker: t.speaker, text: t.text })),
-              participants: roster.map((x) => ({
-                name: x.name,
-                personality: x.kind,
-              })),
-              phase: phaseRef.current,
-              elapsedSeconds: cfg.duration * 60 - secondsRef.current,
-              language: cfg.language,
-              difficulty: cfg.difficulty,
-              format: cfg.format,
-            });
-            let response: Response | undefined;
-            for (let attempt = 0; attempt < 2; attempt++) {
-              try {
-                response = await fetch("/api/director", {
-                  method: "POST",
-                  headers: { "content-type": "application/json" },
-                  body,
-                  signal: AbortSignal.timeout(20000),
-                });
-                if (response.ok) break;
-                if (attempt === 0 && [502, 503].includes(response.status))
-                  continue;
-                throw Error("AI service unavailable");
-              } catch {
-                throw Error("AI request failed");
+        next.current = null;
+        try {
+          const roster = panel.slice(0, cfg.count);
+          const fallback = buildMockTurn({
+            topic: cfg.topic,
+            transcript: turnsRef.current.map((turn) => ({
+              speaker: turn.speaker,
+              text: turn.text,
+            })),
+            participants: roster.map((person) => ({
+              name: person.name,
+              personality: person.kind,
+            })),
+          });
+          let p =
+            roster.find((person) => person.name === fallback.speaker) ||
+            roster[0];
+          let text = fallback.text;
+          if (!isDemo) {
+            try {
+              const body = JSON.stringify({
+                topic: cfg.topic,
+                transcript: turnsRef.current
+                  .slice(-12)
+                  .map((t) => ({ speaker: t.speaker, text: t.text })),
+                participants: roster.map((x) => ({
+                  name: x.name,
+                  personality: x.kind,
+                })),
+                phase: phaseRef.current,
+                elapsedSeconds: cfg.duration * 60 - secondsRef.current,
+                language: cfg.language,
+                difficulty: cfg.difficulty,
+                format: cfg.format,
+              });
+              let response: Response | undefined;
+              for (let attempt = 0; attempt < 2; attempt++) {
+                try {
+                  response = await fetch("/api/director", {
+                    method: "POST",
+                    headers: { "content-type": "application/json" },
+                    body,
+                    signal: AbortSignal.timeout(20000),
+                  });
+                  if (response.ok) break;
+                  if (attempt === 0 && [502, 503].includes(response.status))
+                    continue;
+                  throw Error("AI service unavailable");
+                } catch {
+                  throw Error("AI request failed");
+                }
               }
+              if (!response?.ok) throw Error("AI service unavailable");
+              const data = await response.json();
+              text = data.text;
+              p = roster.find((x) => x.name === data.speaker) || p;
+            } catch {
+              const retryFallback = buildMockTurn({
+                topic: cfg.topic,
+                transcript: turnsRef.current.map((turn) => ({
+                  speaker: turn.speaker,
+                  text: turn.text,
+                })),
+                participants: roster.map((person) => ({
+                  name: person.name,
+                  personality: person.kind,
+                })),
+              });
+              text = retryFallback.text;
+              p =
+                roster.find(
+                  (person) => person.name === retryFallback.speaker,
+                ) || p;
+              N(
+                "AI connection unavailable. The panel is responding to your latest point in practice mode. Check your API settings for live AI.",
+              );
             }
-            if (!response?.ok) throw Error("AI service unavailable");
-            const data = await response.json();
-            text = data.text;
-            p = roster.find((x) => x.name === data.speaker) || p;
-          } catch {
-            const retryFallback = buildMockTurn({
-              topic: cfg.topic,
-              transcript: turnsRef.current.map((turn) => ({
-                speaker: turn.speaker,
-                text: turn.text,
-              })),
-              participants: roster.map((person) => ({
-                name: person.name,
-                personality: person.kind,
-              })),
-            });
-            text = retryFallback.text;
-            p =
-              roster.find((person) => person.name === retryFallback.speaker) ||
-              p;
-            N(
-              "AI connection unavailable. The panel is responding to your latest point in practice mode. Check your API settings for live AI.",
-            );
           }
-        }
-        if (
-          ["PAUSED", "COMPLETED", "PROCESSING_RESULTS"].includes(
-            phaseRef.current,
+          if (
+            ["PAUSED", "COMPLETED", "PROCESSING_RESULTS"].includes(
+              phaseRef.current,
+            )
           )
-        )
-          return;
-        add(p.name, "ai", text, "ai");
-        say(p.name, text);
-        lastAi.current = Date.now();
-        if (secondsRef.current > 0 && phaseRef.current !== "CLOSING")
-          schedule(isDemo);
+            return;
+          add(p.name, "ai", text, "ai");
+          say(p.name, text);
+        } finally {
+          aiBusy.current = false;
+          Think(false);
+        }
       },
-      cfg.patience * 1000 + 2100,
+      cfg.patience * 1000 + 1000,
     );
   }
   function start(isDemo: boolean) {
@@ -373,6 +377,8 @@ export default function Home({ liveEnabled }: { liveEnabled: boolean }) {
     S("room");
     P("OPENING");
     phaseRef.current = "OPENING";
+    aiBusy.current = false;
+    Think(false);
     N("");
     const text =
       "Welcome to the group discussion. Today we are discussing: " +
@@ -381,11 +387,14 @@ export default function Home({ liveEnabled }: { liveEnabled: boolean }) {
     add("Moderator", "moderator", text, "moderator");
     say("Moderator", text);
     setTimeout(() => P((p) => (p === "OPENING" ? "DISCUSSION" : p)), 2200);
-    schedule(isDemo);
   }
   function submit(method: "typed" | "speech" = "typed", raw = input) {
     const text = raw.trim();
     if (!text || phase === "PAUSED") return;
+    if (aiBusy.current) {
+      N("The panelist is taking this turn. You can respond when they finish.");
+      return;
+    }
     if (wc(text) > 180) {
       N("Keep each contribution under 180 words so everyone gets a turn.");
       return;
@@ -394,7 +403,6 @@ export default function Home({ liveEnabled }: { liveEnabled: boolean }) {
     Sp("");
     add("You", "student", text, method);
     I("");
-    lastAi.current = Date.now();
     if (phase === "OPENING") P("DISCUSSION");
     schedule(demo);
   }
@@ -470,10 +478,14 @@ export default function Home({ liveEnabled }: { liveEnabled: boolean }) {
   function pause() {
     if (phase === "PAUSED") {
       P("DISCUSSION");
-      schedule(demo);
     } else {
       P("PAUSED");
-      if (next.current) clearTimeout(next.current);
+      if (next.current) {
+        clearTimeout(next.current);
+        next.current = null;
+        aiBusy.current = false;
+        Think(false);
+      }
       speechSynthesis?.cancel();
       Sp("");
     }
@@ -1050,13 +1062,20 @@ export default function Home({ liveEnabled }: { liveEnabled: boolean }) {
                 <button
                   className={"mic-button " + (listening ? "mic-active" : "")}
                   onClick={mic}
+                  disabled={aiThinking || phase === "PAUSED"}
                 >
                   {listening ? "■　Stop speaking" : "◉　Speak"}
                 </button>
                 <p>
                   {listening
                     ? "Listening · audio stays in browser"
-                    : "Speak or type below"}
+                    : phase === "PAUSED"
+                      ? "Room paused"
+                      : aiThinking
+                        ? "Panelist has the floor · your turn follows"
+                        : own.length === 0
+                          ? "Your turn · share an opening thought"
+                          : "Your turn · respond to the panel"}
                 </p>
                 <textarea
                   aria-label="Type your contribution"
@@ -1064,10 +1083,11 @@ export default function Home({ liveEnabled }: { liveEnabled: boolean }) {
                   value={input}
                   onChange={(e) => I(e.target.value)}
                   maxLength={1500}
+                  disabled={aiThinking || phase === "PAUSED"}
                 />
                 <button
                   className="button-primary submit-button"
-                  disabled={!input.trim()}
+                  disabled={!input.trim() || aiThinking || phase === "PAUSED"}
                   onClick={() => submit()}
                 >
                   Add to discussion　↗

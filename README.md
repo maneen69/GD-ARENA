@@ -6,11 +6,11 @@ GD Arena is a voice-first practice room for campus placement group discussions. 
 
 ## Done / Left / Plan
 
-**Done:** Next.js App Router and TypeScript app; 20 discussion prompts and a custom topic; 3–5 AI panelists plus an AI moderator; 5/8/10-minute sessions; standard, case, abstract, and debate formats; difficulty and language settings; browser speech input and speech output; typed fallback; offline scripted demo with a real student input step; timer, pause, closing phase, transcript, estimate of word share, evidence-linked code rubric, local history/delete, and Markdown export. Gemini-compatible director API is server-only, bounded and schema-validated. Demo and mock modes are labelled.
+**Done:** Next.js App Router and TypeScript app; 20 discussion prompts and a custom topic; 3–5 AI panelists plus an AI moderator; 5/8/10-minute sessions; standard, case, abstract, and debate formats; difficulty and language settings; browser speech input and speech output; typed fallback; turn-wise panel flow with one AI response after each student contribution; offline scripted demo; timer, pause, closing phase, transcript, estimate of word share, evidence-linked code rubric, local history/delete, and Markdown export. Gemini-compatible director API is server-only, bounded and schema-validated. Demo and mock modes are labelled.
 
 **Left:** AI-generated post-session feedback and 2–3 transcript-specific missed-opening suggestions; director prefetch; retry-once behavior; 20-second silence invitations; richer interruption/disagreement measurement; Hinglish quality checks; more granular criterion scoring. The current rubric and advice are deterministic practice prompts, not an LLM assessment. The only interruption fact recorded is when mic capture begins during AI speech.
 
-**Plan:** Prioritise transcript-grounded feedback and stronger room scheduling, then run the manual browser checklist below, deploy to Vercel, and test the deployed API with a user-provided Gemini key.
+**Plan:** Prioritise transcript-grounded feedback, then run the manual browser checklist below, deploy to Vercel, and test the deployed API.
 
 ## Architecture and why
 
@@ -27,13 +27,13 @@ flowchart LR
   T --> R[Code-computed estimates and rubric]
 ```
 
-A single director call selects one panel speaker for each live AI turn and sees the topic, recent transcript, panel, phase, selected format, and difficulty. The `/api/director` route validates and bounds input/output with Zod, limits request body size, uses an 8-second provider timeout, and applies a process-local request throttle. The Gemini API key is read only by the server route. Gemini’s OpenAI-compatible endpoint keeps the provider adapter small; the chosen default is `gemini-3.8-flash`.
+A single director call selects one panel speaker for each live AI turn and sees the topic, recent transcript, panel, phase, selected format, and difficulty. Panelists take turns: one responds after each student contribution, then the floor returns to the student. The `/api/director` route validates and bounds input/output with Zod, limits request body size, uses an 18-second provider timeout, and applies a process-local request throttle. The Gemini API key is read only by the server route. Gemini’s OpenAI-compatible endpoint keeps the provider adapter small; the chosen default is `gemini-3.8-flash`.
 
 SpeechRecognition and SpeechSynthesis run in the browser where supported; the user can type and mute voices. Browser speech recognition may process audio according to the browser’s own service and settings. GD Arena does not upload or store raw audio. In live mode, transcript text is sent to the configured AI provider. Metrics and rubric evidence are computed from stored transcript turns in application code. Speaking share is estimated from word counts because browser speech recognition does not report audio duration. History uses localStorage so the prototype needs no account or database; it is limited to this browser and has a delete control.
 
 ## What we added
 
-The room has five stable panel characters (Aarav, Riya, Kabir, Meera, and Dev), a live transcript filter, an optional mic access check, short typed turns, adjustable AI pause time, and a one-click demo that does not need an API key or internet. The demo uses scripted panel dialogue, is explicitly labelled, and requires the student to contribute before a report is produced.
+The room has five stable panel characters (Aarav, Riya, Kabir, Meera, and Dev), a live transcript filter, an optional mic access check, short typed turns, turn-wise panel replies, adjustable AI pause time, and a one-click demo that does not need an API key or internet. The demo uses scripted panel dialogue, is explicitly labelled, and requires the student to contribute before a report is produced.
 
 The report displays exact transcript excerpts and links each rubric item to a transcript turn ID. Missing evidence is shown as “Insufficient evidence.” The numerical practice score is intentionally simple: 58 base points, plus 6 for each student turn, plus up to 12 from estimated speaking share, capped at 95. Treat it as a repeatable practice indicator, not a hiring assessment.
 
