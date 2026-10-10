@@ -27,7 +27,7 @@ flowchart LR
   T --> R[Code-computed estimates and rubric]
 ```
 
-A single director call selects one panel speaker for each live AI turn and sees the topic, recent transcript, panel, phase, selected format, and difficulty. The `/api/director` route validates and bounds input/output with Zod, limits request body size, uses an 8-second provider timeout, and applies a process-local request throttle. The Gemini API key is read only by the server route. Gemini’s OpenAI-compatible endpoint keeps the provider adapter small; the chosen default is `gemini-2.5-flash`.
+A single director call selects one panel speaker for each live AI turn and sees the topic, recent transcript, panel, phase, selected format, and difficulty. The `/api/director` route validates and bounds input/output with Zod, limits request body size, uses an 8-second provider timeout, and applies a process-local request throttle. The Gemini API key is read only by the server route. Gemini’s OpenAI-compatible endpoint keeps the provider adapter small; the chosen default is `gemini-3.8-flash`.
 
 SpeechRecognition and SpeechSynthesis run in the browser where supported; the user can type and mute voices. Browser speech recognition may process audio according to the browser’s own service and settings. GD Arena does not upload or store raw audio. In live mode, transcript text is sent to the configured AI provider. Metrics and rubric evidence are computed from stored transcript turns in application code. Speaking share is estimated from word counts because browser speech recognition does not report audio duration. History uses localStorage so the prototype needs no account or database; it is limited to this browser and has a delete control.
 
@@ -49,7 +49,7 @@ notepad .env.local
 npm run dev
 ```
 
-Open `http://localhost:3000` in Chrome or Edge. The microphone is optional; if access is denied or recognition is unavailable, use the text box. `MOCK_LLM=true` forces the clearly labelled scripted API fallback. With `MOCK_LLM=false` and a valid `LLM_API_KEY`, the app uses Google Gemini. Gemini offers a free tier for some models and accounts/regions; quotas and model availability vary, so check [current Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing). Set `LLM_PROVIDER=gemini`, `LLM_API_KEY`, `LLM_MODEL=gemini-2.5-flash`, and `LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai`. Create a key in [Google AI Studio](https://aistudio.google.com/app/apikey). Keep the key in `.env.local`; never put it in a `NEXT_PUBLIC_` variable.
+Open `http://localhost:3000` in Chrome or Edge. The microphone is optional; if access is denied or recognition is unavailable, use the text box. `MOCK_LLM=true` forces the clearly labelled scripted API fallback. With `MOCK_LLM=false` and a valid `LLM_API_KEY`, the app uses Google Gemini. Gemini offers a free tier for some models and accounts/regions; quotas and model availability vary, so check [current Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing). Set `LLM_PROVIDER=gemini`, `LLM_API_KEY`, `LLM_MODEL=gemini-3.8-flash`, and `LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai`. Create a key in [Google AI Studio](https://aistudio.google.com/app/apikey). Keep the key in `.env.local`; never put it in a `NEXT_PUBLIC_` variable.
 
 The live URL is **not deployed**; this repository currently runs locally. To deploy, import this repository into Vercel, add the four Gemini environment variables in the project settings, leave `MOCK_LLM=false`, deploy, and test the room on the generated HTTPS URL. HTTPS is needed for microphone access.
 
@@ -65,7 +65,7 @@ npm start
 
 ## Tools and AI used
 
-Next.js App Router, React, TypeScript, Tailwind CSS 4, Zod, Vitest, ESLint, and Prettier. The live provider adapter uses Google Gemini through its OpenAI-compatible REST endpoint; the default model is `gemini-2.5-flash`. Browser voice input and output use the Web Speech APIs. The room, setup, report, and landing page state that participants and the moderator are AI. The UI distinguishes `LIVE AI`, `MOCK SESSION`, and `DEMO SESSION`; scripted fallback text is not presented as live reasoning.
+Next.js App Router, React, TypeScript, Tailwind CSS 4, Zod, Vitest, ESLint, and Prettier. The live provider adapter uses Google Gemini through its OpenAI-compatible REST endpoint; the default model is `gemini-3.8-flash`. Browser voice input and output use the Web Speech APIs. The room, setup, report, and landing page state that participants and the moderator are AI. The UI distinguishes `LIVE AI`, `MOCK SESSION`, and `DEMO SESSION`; scripted fallback text is not presented as live reasoning.
 
 **Privacy and security:** no user account or personal profile is collected; session transcripts are stored in browser localStorage until deleted. `.env.local` is ignored by Git. Provider secrets remain server-side. Request fields and model output are validated, transcript and body sizes are capped, and provider requests time out. The in-memory throttle is per server process and is not a substitute for a managed production rate-limit service. Gemini free-tier data-use terms may differ from paid tiers; review the provider’s current terms before sending sensitive transcript text.
 
