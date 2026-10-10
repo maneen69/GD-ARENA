@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { buildMockTurn } from "../../../lib/director";
 const Input = z.object({
   topic: z.string().trim().min(5).max(140),
   transcript: z
@@ -49,12 +50,8 @@ export async function POST(req: Request) {
         : { ...r, count: r.count + 1 },
     );
     if (!live()) {
-      const p =
-        b.participants[Math.floor(Math.random() * b.participants.length)];
       return NextResponse.json({
-        speaker: p.name,
-        text: "We should look at both the immediate opportunity and who might be left out. A practical first step is to test this on a small scale.",
-        intent: "Add a balanced perspective",
+        ...buildMockTurn(b),
         mode: "mock",
       });
     }
@@ -77,7 +74,7 @@ export async function POST(req: Request) {
             {
               role: "system",
               content:
-                "Direct a realistic student group discussion in the requested language, difficulty, and format. Return JSON {speaker,text,intent}. speaker must exactly match a panel name. text is one to three spoken sentences, at most 40 words. React to recent transcript, never fabricate sources or statistics, and stay respectful. Panel: " +
+                "Direct a realistic student group discussion in the requested language, difficulty, and format. Return JSON {speaker,text,intent}. speaker must exactly match a panel name and must not be the speaker of the previous AI turn when another panelist is available. text is one to three spoken sentences, at most 40 words. Respond directly to the latest student contribution and refer to its specific idea. Do not repeat or lightly rephrase any recent AI response; introduce a genuinely new angle or useful question. Never fabricate sources or statistics, and stay respectful. Panel: " +
                 b.participants
                   .map((p) => p.name + " — " + p.personality)
                   .join("; "),
@@ -122,7 +119,29 @@ export async function POST(req: Request) {
         { error: "AI response did not match the panel" },
         { status: 502 },
       );
-    return NextResponse.json({ ...out.data, mode: "live" });
+    const recentAi = b.transcript.filter((turn) =>
+      b.participants.some((person) => person.name === turn.speaker),
+    );
+    const repeated = recentAi
+      .slice(-6)
+      .some(
+        (turn) =>
+          turn.text.trim().toLowerCase() === out.data.text.trim().toLowerCase(),
+      );
+    if (repeated)
+      return NextResponse.json({ ...buildMockTurn(b), mode: "fallback" });
+    const lastSpeaker = recentAi.at(-1)?.speaker;
+    const nextSpeaker = b.participants.find(
+      (person) => person.name !== lastSpeaker,
+    );
+    return NextResponse.json({
+      ...out.data,
+      speaker:
+        out.data.speaker === lastSpeaker && nextSpeaker
+          ? nextSpeaker.name
+          : out.data.speaker,
+      mode: "live",
+    });
   } catch (e) {
     if (e instanceof z.ZodError)
       return NextResponse.json(

@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { buildMockTurn } from "../lib/director";
 import { buildRubric, transitionPhase, type Phase } from "../lib/session";
 type SpeechRec = {
   continuous: boolean;
@@ -276,8 +277,22 @@ export default function Home({ liveEnabled }: { liveEnabled: boolean }) {
           return;
         }
         const roster = panel.slice(0, cfg.count);
-        let p = roster[aiIndex.current++ % roster.length];
-        let text = p.say[aiIndex.current % 2];
+        aiIndex.current++;
+        const fallback = buildMockTurn({
+          topic: cfg.topic,
+          transcript: turnsRef.current.map((turn) => ({
+            speaker: turn.speaker,
+            text: turn.text,
+          })),
+          participants: roster.map((person) => ({
+            name: person.name,
+            personality: person.kind,
+          })),
+        });
+        let p =
+          roster.find((person) => person.name === fallback.speaker) ||
+          roster[0];
+        let text = fallback.text;
         if (!isDemo) {
           try {
             const body = JSON.stringify({
@@ -314,8 +329,23 @@ export default function Home({ liveEnabled }: { liveEnabled: boolean }) {
             text = data.text;
             p = roster.find((x) => x.name === data.speaker) || p;
           } catch {
+            const retryFallback = buildMockTurn({
+              topic: cfg.topic,
+              transcript: turnsRef.current.map((turn) => ({
+                speaker: turn.speaker,
+                text: turn.text,
+              })),
+              participants: roster.map((person) => ({
+                name: person.name,
+                personality: person.kind,
+              })),
+            });
+            text = retryFallback.text;
+            p =
+              roster.find((person) => person.name === retryFallback.speaker) ||
+              p;
             N(
-              "AI response unavailable. Using a short fallback. Check connection or API settings.",
+              "AI connection unavailable. The panel is responding to your latest point in practice mode. Check your API settings for live AI.",
             );
           }
         }
