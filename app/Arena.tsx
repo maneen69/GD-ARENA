@@ -182,7 +182,6 @@ export default function Home({ liveEnabled }: { liveEnabled: boolean }) {
     timer = useRef<ReturnType<typeof setInterval> | null>(null),
     next = useRef<ReturnType<typeof setTimeout> | null>(null),
     recognition = useRef<SpeechRec | null>(null),
-    aiIndex = useRef(0),
     lastAi = useRef(0);
   useEffect(
     () => () => {
@@ -277,7 +276,6 @@ export default function Home({ liveEnabled }: { liveEnabled: boolean }) {
           return;
         }
         const roster = panel.slice(0, cfg.count);
-        aiIndex.current++;
         const fallback = buildMockTurn({
           topic: cfg.topic,
           transcript: turnsRef.current.map((turn) => ({
@@ -373,7 +371,6 @@ export default function Home({ liveEnabled }: { liveEnabled: boolean }) {
     P("OPENING");
     phaseRef.current = "OPENING";
     N("");
-    aiIndex.current = 0;
     const text =
       "Welcome to the group discussion. Today we are discussing: " +
       cfg.topic +

@@ -68,10 +68,19 @@ describe("director route", () => {
       { speaker: first.speaker, text: first.text },
     ]);
     const second = await secondResponse.json();
+    const thirdResponse = await request([
+      ...transcript,
+      { speaker: first.speaker, text: first.text },
+      { speaker: second.speaker, text: second.text },
+    ]);
+    const third = await thirdResponse.json();
 
     expect(firstResponse.status).toBe(200);
     expect(first.text.toLowerCase()).toContain("scholarships");
     expect(second.text).not.toBe(first.text);
     expect(second.speaker).not.toBe(first.speaker);
+    expect(new Set([first.speaker, second.speaker, third.speaker]).size).toBe(
+      3,
+    );
   });
 });

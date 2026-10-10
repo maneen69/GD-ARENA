@@ -125,10 +125,12 @@ export function buildMockTurn(input: {
     aiSpeakers.has(turn.speaker),
   );
   const lastSpeaker = [...priorAi].reverse()[0]?.speaker;
-  const speakerChoices = input.participants.filter(
-    (person) => input.participants.length === 1 || person.name !== lastSpeaker,
-  );
-  const speaker = speakerChoices[priorAi.length % speakerChoices.length];
+  const preferred =
+    input.participants[priorAi.length % input.participants.length];
+  const speaker =
+    preferred.name === lastSpeaker && input.participants.length > 1
+      ? input.participants[(priorAi.length + 1) % input.participants.length]
+      : preferred;
   const lastUserText = [...input.transcript]
     .reverse()
     .find((turn) => turn.speaker === "You")?.text;
