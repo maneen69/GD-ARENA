@@ -67,7 +67,7 @@ export async function POST(req: Request) {
           authorization: "Bearer " + process.env.LLM_API_KEY,
         },
         body: JSON.stringify({
-          model: process.env.LLM_MODEL || "gemini-3.8-flash",
+          model: process.env.LLM_MODEL || "gemini-3.6-flash",
           temperature: 0.7,
           response_format: { type: "json_object" },
           messages: [
