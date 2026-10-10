@@ -1,5 +1,7 @@
 # GD Arena
 
+TRY IT YOURSELF -> https://gd-arena-smoky.vercel.app/
+
 ## What it does
 
 GD Arena is a voice-first practice room for campus placement group discussions. Students can practise with an AI panel, review a locally saved transcript, and see a transparent, code-computed practice rubric. **Problem Statement 2: GD Arena**
